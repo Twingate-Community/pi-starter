@@ -227,8 +227,16 @@ jobs:
       - name: Compress image
         run: |
           echo "Compressing image..."
-          xz -9 -T 2 --memlimit=75% -f ${{ env.IMAGE_NAME }}.img
+          xz -9 -T 2 --memlimit=75% -f ${{ env.IMAGE_NAME }}.img || true
+          
+          # Verify compression succeeded
+          if [ ! -f "${{ env.IMAGE_NAME }}.img.xz" ]; then
+            echo "Error: Compression failed"
+            exit 1
+          fi
+          
           ls -lh ${{ env.IMAGE_NAME }}.img.xz
+          echo "Compression successful!"
 
       - name: Create release notes
         run: |
