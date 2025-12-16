@@ -227,7 +227,7 @@ jobs:
       - name: Compress image
         run: |
           echo "Compressing image..."
-          xz -9 -T 0 ${{ env.IMAGE_NAME }}.img
+          xz -9 -T 2 --memlimit=75% -f ${{ env.IMAGE_NAME }}.img
           ls -lh ${{ env.IMAGE_NAME }}.img.xz
 
       - name: Create release notes
