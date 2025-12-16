@@ -1,0 +1,214 @@
+name: Build Twingate Connector Image
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC to check for new connector versions
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      base_image_url:
+        description: "Raspberry Pi OS Lite image URL"
+        required: false
+        default: "https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz"
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/**"
+      - ".github/workflows/build-image.yml"
+
+env:
+  IMAGE_NAME: twingate-connector-pi
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      connector_version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest Twingate connector version
+        id: version
+        run: |
+          # Query Twingate repository for latest version
+          VERSION=$(curl -s https://binaries.twingate.com/connector/deb/dists/stable/main/binary-arm64/Packages | grep -A 5 "Package: twingate-connector" | grep "Version:" | head -1 | awk '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest connector version: $VERSION"
+
+      - name: Check if version already built
+        id: check
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Check if a release with this version exists
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "Version $VERSION already built"
+          else
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "New version $VERSION needs to be built"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build-image:
+    needs: check-version
+    if: needs.check-version.outputs.should_build == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build image with Docker
+        run: |
+          BASE_IMAGE_URL="${{ github.event.inputs.base_image_url || 'https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz' }}"
+          
+          echo "Building Twingate Connector image using Docker..."
+          echo "This matches the documented manual build process."
+          
+          # Build Docker image with custom base image URL
+          docker build \
+            --build-arg BASE_IMAGE_URL="$BASE_IMAGE_URL" \
+            -t twingate-pi-builder .
+          
+          # Run container to customize and export image
+          docker run --rm --privileged \
+            -v "$PWD:/output" \
+            twingate-pi-builder
+          
+          echo "Build complete!"
+          ls -lh ${{ env.IMAGE_NAME }}.img
+
+      - name: Generate image info
+        id: image_info
+        run: |
+          VERSION="${{ needs.check-version.outputs.connector_version }}"
+          BUILD_DATE=$(date +%Y-%m-%d)
+
+          # Get image hash
+          IMAGE_HASH=$(sha256sum ${{ env.IMAGE_NAME }}.img | awk '{print $1}')
+
+          # Create info file
+          cat > image-info.json << EOF
+          {
+            "version": "$VERSION",
+            "build_date": "$BUILD_DATE",
+            "base_os": "Raspberry Pi OS Lite (64-bit)",
+            "connector_version": "$VERSION",
+            "sha256": "$IMAGE_HASH",
+            "features": [
+              "Pre-installed Twingate connector",
+              "Automatic first-boot provisioning",
+              "Configurable auto-updates",
+              "Systemd service management"
+            ]
+          }
+          EOF
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+          echo "sha256=$IMAGE_HASH" >> $GITHUB_OUTPUT
+
+      - name: Compress image
+        run: |
+          echo "Compressing image..."
+          xz -9 -T 0 ${{ env.IMAGE_NAME }}.img
+          ls -lh ${{ env.IMAGE_NAME }}.img.xz
+
+      - name: Create release notes
+        run: |
+          VERSION="${{ steps.image_info.outputs.version }}"
+          BUILD_DATE="${{ steps.image_info.outputs.build_date }}"
+          SHA256="${{ steps.image_info.outputs.sha256 }}"
+
+          cat > release-notes.md << EOF
+          # Twingate Connector for Raspberry Pi - v$VERSION
+
+          **Build Date:** $BUILD_DATE
+
+          ## What's Included
+
+          - **Twingate Connector:** v$VERSION
+          - **Base OS:** Raspberry Pi OS Lite (64-bit) Bookworm
+          - **Architecture:** ARM64 (compatible with Pi 3, 4, 5, Zero 2 W)
+
+          ## Features
+
+          - ✅ Pre-installed Twingate connector package
+          - ✅ Automatic provisioning on first boot via API
+          - ✅ Configurable auto-updates
+          - ✅ Systemd service management
+          - ✅ Detailed logging for troubleshooting
+
+          ## Quick Start
+
+          1. **Download** the image and flash to SD card using Raspberry Pi Imager or Balena Etcher
+          2. **Configure** by copying \`twingate-config.txt.example\` to \`twingate-config.txt\` on the boot partition
+          3. **Set** your \`TWINGATE_NETWORK\` and \`TWINGATE_API_KEY\` in the config file
+          4. **Boot** your Raspberry Pi - the connector will provision automatically!
+          5. **Verify** in Twingate Admin Console after 2-5 minutes
+
+          ## Configuration Options
+
+          Edit \`/boot/firmware/twingate-config.txt\` before first boot:
+
+          - \`TWINGATE_NETWORK\`: Your Twingate network name (required)
+          - \`TWINGATE_API_KEY\`: API key from Admin Console (required)
+          - \`TWINGATE_REMOTE_NETWORK_ID\`: Target remote network (optional)
+          - \`CONNECTOR_NAME\`: Custom connector name (optional)
+          - \`AUTO_UPDATE_ENABLED\`: Enable/disable auto-updates (default: true)
+          - \`AUTO_UPDATE_TIME\`: Update time in HH:MM format (default: 03:00)
+
+          ## File Checksums
+
+          **SHA256:** \`$SHA256\`
+
+          Verify after download:
+          \`\`\`bash
+          sha256sum ${{ env.IMAGE_NAME }}.img.xz
+          \`\`\`
+
+          ## Troubleshooting
+
+          - **Check provisioning log:** \`/boot/firmware/twingate-provision.log\`
+          - **Service status:** \`sudo systemctl status twingate-connector\`
+          - **Re-provision:** \`sudo rm /etc/twingate/.provisioned && sudo reboot\`
+
+          ## Documentation
+
+          - [Twingate Connector Docs](https://www.twingate.com/docs/connectors)
+          - [API Documentation](https://www.twingate.com/docs/api)
+          - [GitHub Repository](https://github.com/${{ github.repository }})
+
+          ---
+
+          **Note:** This is an automated build. The connector will automatically update based on your configuration.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.image_info.outputs.version }}
+          name: Twingate Connector Pi v${{ steps.image_info.outputs.version }}
+          body_path: release-notes.md
+          files: |
+            ${{ env.IMAGE_NAME }}.img.xz
+            image-info.json
+            config/twingate-config.txt.example
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest tag
+        run: |
+          git tag -f latest
+          git push -f origin latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
