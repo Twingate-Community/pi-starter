@@ -1,0 +1,30 @@
+# Twingate Connector Configuration
+# Copy this file to /boot/firmware/twingate-config.txt on your SD card before first boot
+
+# Required: Your Twingate network name (subdomain)
+# Example: If your admin console is at https://mycompany.twingate.com, use "mycompany"
+TWINGATE_NETWORK=yourcompany
+
+# Required: API key from Twingate Admin Console
+# Generate at: Settings > API > Generate Token
+TWINGATE_API_KEY=your_api_key_here
+
+# Required: Remote Network ID to deploy connector to
+# Find in Admin Console: Networks > Your Network > Copy ID from URL
+TWINGATE_REMOTE_NETWORK_ID=your_remote_network_id
+
+# Optional: Custom name for this connector
+# Leave empty to auto-generate based on hostname
+CONNECTOR_NAME=
+
+# Auto-Update Configuration
+# Enable or disable automatic updates (true/false)
+AUTO_UPDATE_ENABLED=true
+
+# Time to check for updates (24-hour format: HH:MM)
+# Default: 03:00 (3 AM local time)
+AUTO_UPDATE_TIME=03:00
+
+# SSH Configuration
+# SSH is enabled by default with username: pi, password: raspberry
+# To disable SSH, remove the /boot/firmware/ssh file before first boot
