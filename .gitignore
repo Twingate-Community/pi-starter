@@ -1,0 +1,51 @@
+# Raspberry Pi Images
+*.img
+*.img.xz
+*.img.gz
+*.img.zip
+
+# Configuration files with real credentials
+config/twingate-config.txt
+twingate-config.txt
+/boot/firmware/twingate-config.txt
+
+# Logs
+*.log
+twingate-provision.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+build/
+dist/
+output/
+
+# Docker
+.dockerignore
+
+# Secrets and keys (just in case)
+*.key
+*.pem
+secrets.txt
+.env
+.env.local
