@@ -149,6 +149,12 @@ jobs:
           echo "Build triggered by: ${{ needs.check-updates.outputs.build_reason }}"
           echo "Connector version: ${{ needs.check-updates.outputs.connector_version }}"
           echo "Raspberry Pi OS: ${{ needs.check-updates.outputs.base_image_version }}"
+          echo "All outputs from check-updates:"
+          echo "  should_build: ${{ needs.check-updates.outputs.should_build }}"
+          echo "  connector_version: ${{ needs.check-updates.outputs.connector_version }}"
+          echo "  base_image_url: ${{ needs.check-updates.outputs.base_image_url }}"
+          echo "  base_image_version: ${{ needs.check-updates.outputs.base_image_version }}"
+          echo "  build_reason: ${{ needs.check-updates.outputs.build_reason }}"
 
       - name: Install required dependencies
         run: |
@@ -188,7 +194,7 @@ jobs:
 
       - name: Build customized image
         run: |
-          echo "Customizing Raspberry Pi image with Twingate connector..."
+          echo "Customizing Raspberry Pi image with Twingate Connector..."
           sudo bash scripts/customize-image.sh base-image.img ${{ env.IMAGE_NAME }}.img
 
           echo "Build complete!"
@@ -257,42 +263,6 @@ jobs:
           **Build Date:** $BUILD_DATE  
           **Build Trigger:** $BUILD_REASON
 
-          ## What's Included
-
-          - **Twingate Connector:** v$VERSION
-          - **Base OS:** Raspberry Pi OS Lite (64-bit) Bookworm ($RASPI_OS_VERSION)
-          - **Architecture:** ARM64 (compatible with Pi 3, 4, 5, Zero 2 W)
-
-          ## Features
-
-          - Pre-installed Twingate Connector package
-          - Automatic provisioning on first boot via API
-          - Configurable auto-updates
-          - Systemd service management
-          - Detailed logging for troubleshooting
-
-          ## Quick Start
-
-          1. **Download** the image and flash to SD card using Raspberry Pi Imager or Balena Etcher
-          2. **Configure** by copying \`twingate-config.txt.example\` to \`twingate-config.txt\` on the boot partition
-          3. **Set** your \`TWINGATE_NETWORK\`, \`TWINGATE_API_KEY\`, and \`TWINGATE_REMOTE_NETWORK_ID\` in the config file
-          4. **Boot** your Raspberry Pi - the connector will provision automatically!
-          5. **Verify** in Twingate Admin Console after 2-5 minutes
-
-          ## Configuration Options
-
-          Edit \`/boot/firmware/twingate-config.txt\` before first boot:
-
-          **Required:**
-          - \`TWINGATE_NETWORK\`: Your Twingate network name
-          - \`TWINGATE_API_KEY\`: API key from Admin Console
-          - \`TWINGATE_REMOTE_NETWORK_ID\`: Target remote network ID
-
-          **Optional:**
-          - \`CONNECTOR_NAME\`: Custom connector name (default: auto-generated)
-          - \`AUTO_UPDATE_ENABLED\`: Enable/disable auto-updates (default: true)
-          - \`AUTO_UPDATE_TIME\`: Update time in HH:MM format (default: 03:00)
-
           ## File Checksums
 
           **SHA256:** \`$SHA256\`
@@ -302,12 +272,6 @@ jobs:
           sha256sum ${{ env.IMAGE_NAME }}.img.xz
           \`\`\`
 
-          ## Troubleshooting
-
-          - **Check provisioning log:** \`/boot/firmware/twingate-provision.log\`
-          - **Service status:** \`sudo systemctl status twingate-connector\`
-          - **Re-provision:** \`sudo rm /etc/twingate/.provisioned && sudo reboot\`
-
           ## Documentation
 
           - [Twingate Connector Docs](https://www.twingate.com/docs/connectors)
@@ -316,7 +280,7 @@ jobs:
 
           ---
 
-          **Note:** This is an automated build. The connector will automatically update based on your configuration.
+          **Note:** This is an automated build. The Connector will automatically update based on your configuration.
           EOF
 
       - name: Create GitHub Release
