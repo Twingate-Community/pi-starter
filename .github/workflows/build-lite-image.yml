@@ -227,6 +227,8 @@ jobs:
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "sha256=$IMAGE_HASH" >> $GITHUB_OUTPUT
 
+          echo "Set outputs - version: $VERSION, build_date: $BUILD_DATE"
+
       - name: Compress image
         run: |
           echo "Compressing image..."
@@ -320,8 +322,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ steps.image_info.outputs.version }}-lite
-          name: Twingate Connector Pi Lite v${{ steps.image_info.outputs.version }}
+          tag_name: v${{ needs.check-updates.outputs.connector_version }}-lite
+          name: Twingate Connector Pi Lite v${{ needs.check-updates.outputs.connector_version }}
           body_path: release-notes.md
           files: |
             ${{ env.IMAGE_NAME }}.img.xz
