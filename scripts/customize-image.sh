@@ -130,6 +130,14 @@ mount -o bind /dev/pts "$MOUNT_ROOT/dev/pts"
 # Copy resolv.conf for DNS resolution during install
 cp /etc/resolv.conf "$MOUNT_ROOT/etc/resolv.conf"
 
+# Copy qemu-aarch64-static for ARM emulation (if available)
+if [ -f /usr/bin/qemu-aarch64-static ]; then
+    echo "Setting up QEMU for ARM64 emulation..."
+    cp /usr/bin/qemu-aarch64-static "$MOUNT_ROOT/usr/bin/"
+else
+    echo "Warning: qemu-aarch64-static not found, ARM emulation may not work"
+fi
+
 # Install Twingate Connector package
 echo "Installing Twingate Connector package..."
 chroot "$MOUNT_ROOT" /usr/local/bin/install-connector.sh
@@ -137,6 +145,11 @@ chroot "$MOUNT_ROOT" /usr/local/bin/install-connector.sh
 # Enable the first-boot service
 echo "Enabling first-boot service..."
 chroot "$MOUNT_ROOT" systemctl enable twingate-firstboot.service
+
+# Remove qemu binary from image
+if [ -f "$MOUNT_ROOT/usr/bin/qemu-aarch64-static" ]; then
+    rm "$MOUNT_ROOT/usr/bin/qemu-aarch64-static"
+fi
 
 # Enable SSH by creating ssh file
 echo "Enabling SSH..."

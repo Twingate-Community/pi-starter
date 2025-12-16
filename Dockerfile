@@ -17,6 +17,8 @@ RUN apt-get update && \
     xz-utils \
     wget \
     whois \
+    qemu-user-static \
+    binfmt-support \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
