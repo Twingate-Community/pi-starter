@@ -1,5 +1,8 @@
 name: Build Twingate Connector Image (Lite)
 
+permissions:
+  contents: write
+
 on:
   schedule:
     # Run daily at 2 AM UTC to check for new connector and OS versions
