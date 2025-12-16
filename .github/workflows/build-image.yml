@@ -68,20 +68,20 @@ jobs:
       - name: Build image with Docker
         run: |
           BASE_IMAGE_URL="${{ github.event.inputs.base_image_url || 'https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz' }}"
-          
+
           echo "Building Twingate Connector image using Docker..."
           echo "This matches the documented manual build process."
-          
+
           # Build Docker image with custom base image URL
           docker build \
             --build-arg BASE_IMAGE_URL="$BASE_IMAGE_URL" \
             -t twingate-pi-builder .
-          
+
           # Run container to customize and export image
           docker run --rm --privileged \
             -v "$PWD:/output" \
             twingate-pi-builder
-          
+
           echo "Build complete!"
           ls -lh ${{ env.IMAGE_NAME }}.img
 
