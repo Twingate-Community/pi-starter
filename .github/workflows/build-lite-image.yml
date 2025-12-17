@@ -75,23 +75,27 @@ jobs:
       - name: Get latest Twingate Connector version
         id: connector
         run: |
-          # Query Twingate repository for latest version
-          echo "Fetching Twingate connector version..."
-          PACKAGES=$(curl -s https://binaries.twingate.com/connector/deb/dists/stable/main/binary-arm64/Packages)
+          # Add Twingate repository to query version (without installing connector)
+          echo "Setting up Twingate repository..."
 
-          if [ -z "$PACKAGES" ]; then
-            echo "Error: Failed to fetch packages list"
-            exit 1
-          fi
+          # Download and add Twingate GPG key
+          curl -fsSL https://packages.twingate.com/apt/gpg.key | \
+            sudo gpg --dearmor -o /usr/share/keyrings/twingate-connector-keyring.gpg
 
-          VERSION=$(echo "$PACKAGES" | \
-            grep -A 5 "Package: twingate-connector" | \
-            grep "Version:" | head -1 | awk '{print $2}')
+          # Add Twingate repository
+          echo "deb [signed-by=/usr/share/keyrings/twingate-connector-keyring.gpg] https://packages.twingate.com/apt/ /" | \
+            sudo tee /etc/apt/sources.list.d/twingate.list
+
+          # Update apt cache
+          sudo apt-get update -qq
+
+          # Get latest version
+          VERSION=$(apt-cache policy twingate-connector | grep Candidate | awk '{print $2}')
 
           if [ -z "$VERSION" ]; then
-            echo "Error: Could not extract version from packages"
-            echo "Package content (first 50 lines):"
-            echo "$PACKAGES" | head -50
+            echo "Error: Could not determine Twingate connector version"
+            echo "Available package info:"
+            apt-cache policy twingate-connector
             exit 1
           fi
 
