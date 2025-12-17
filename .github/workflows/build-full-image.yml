@@ -5,7 +5,7 @@ permissions:
 
 on:
   schedule:
-    # Run daily at 3 AM UTC to check for new connector and OS versions (offset from Lite build)
+    # Run daily at 3 AM UTC to check for new Connector and OS versions (offset from Lite build)
     - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
@@ -218,29 +218,9 @@ jobs:
         run: |
           VERSION="${{ needs.check-updates.outputs.connector_version }}"
           BUILD_DATE=$(date +%Y-%m-%d)
-          RASPI_OS_VERSION="${{ needs.check-updates.outputs.base_image_version }}"
 
           # Get image hash
           IMAGE_HASH=$(sha256sum ${{ env.IMAGE_NAME }}.img | awk '{print $1}')
-
-          # Create info file
-          cat > image-info.json << EOF
-          {
-            "version": "$VERSION",
-            "build_date": "$BUILD_DATE",
-            "base_os": "Raspberry Pi OS Full (64-bit)",
-            "base_os_version": "$RASPI_OS_VERSION",
-            "connector_version": "$VERSION",
-            "sha256": "$IMAGE_HASH",
-            "build_trigger": "${{ needs.check-updates.outputs.build_reason }}",
-            "features": [
-              "Pre-installed Twingate Connector",
-              "Automatic first-boot provisioning",
-              "Configurable auto-updates",
-              "Systemd service management"
-            ]
-          }
-          EOF
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
@@ -310,8 +290,6 @@ jobs:
           body_path: release-notes.md
           files: |
             ${{ env.IMAGE_NAME }}.img.xz
-            image-info.json
-            config/twingate-config.txt.example
           draft: false
           prerelease: false
         env:
