@@ -76,9 +76,24 @@ jobs:
         id: connector
         run: |
           # Query Twingate repository for latest version
-          VERSION=$(curl -s https://binaries.twingate.com/connector/deb/dists/stable/main/binary-arm64/Packages | \
+          echo "Fetching Twingate connector version..."
+          PACKAGES=$(curl -s https://binaries.twingate.com/connector/deb/dists/stable/main/binary-arm64/Packages)
+
+          if [ -z "$PACKAGES" ]; then
+            echo "Error: Failed to fetch packages list"
+            exit 1
+          fi
+
+          VERSION=$(echo "$PACKAGES" | \
             grep -A 5 "Package: twingate-connector" | \
             grep "Version:" | head -1 | awk '{print $2}')
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not extract version from packages"
+            echo "Package content (first 50 lines):"
+            echo "$PACKAGES" | head -50
+            exit 1
+          fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Latest Twingate Connector version: $VERSION"
