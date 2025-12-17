@@ -160,11 +160,14 @@ touch "$MOUNT_BOOT/ssh"
 echo "Creating userconf.txt for initial user setup..."
 # Generate password hash dynamically to match Raspberry Pi Imager behavior
 # Default username: pi, password: raspberry
+
+# Feel free to change this to change these values to match your use case
+DEFAULT_USER="pi"
 DEFAULT_PASSWORD="raspberry"
 PASSWORD_HASH=$(echo "$DEFAULT_PASSWORD" | mkpasswd -m sha-512 --stdin)
-echo "pi:$PASSWORD_HASH" > "$MOUNT_BOOT/userconf.txt"
+echo "$DEFAULT_USER:$PASSWORD_HASH" > "$MOUNT_BOOT/userconf.txt"
 chmod 644 "$MOUNT_BOOT/userconf.txt"
-echo "Default credentials: pi / $DEFAULT_PASSWORD"
+echo "Default credentials: $DEFAULT_USER / $DEFAULT_PASSWORD"
 
 # Cleanup chroot mounts
 echo "Cleaning up chroot environment..."
@@ -188,8 +191,10 @@ automatically configured on first boot.
 SETUP INSTRUCTIONS:
 -------------------
 
-1. Copy twingate-config.txt.example to twingate-config.txt
-2. Edit twingate-config.txt with your Twingate settings:
+1. Flash the image to an SD card using Raspberry Pi Imager or similar tool
+2. Mount the boot partition of the SD card on your computer
+3. Copy twingate-config.txt.example to twingate-config.txt
+4. Edit twingate-config.txt with your Twingate settings:
    
    Required parameters:
    - TWINGATE_NETWORK: Your Twingate network name (subdomain)
@@ -201,10 +206,10 @@ SETUP INSTRUCTIONS:
    - AUTO_UPDATE_ENABLED: Enable automatic updates (default: true)
    - AUTO_UPDATE_TIME: Update check time in HH:MM format (default: 03:00)
 
-3. Insert SD card into Raspberry Pi and power on
-4. Wait 2-5 minutes for first boot provisioning to complete
-5. Check /boot/firmware/twingate-provision.log for status
-6. Verify connector status in Twingate Admin Console
+5. Insert SD card into Raspberry Pi, plug in an ethernet cable and power on
+6. Wait 2-5 minutes for first boot provisioning to complete
+7. Check /boot/firmware/twingate-provision.log for status
+8. Verify Connector status in Twingate Admin Console
 
 DEFAULT CREDENTIALS:
 --------------------
@@ -220,7 +225,7 @@ IMPORTANT: Change the default password after first login:
 FEATURES:
 ---------
 
-- Automatic connector creation via API
+- Automatic Connector creation via API
 - Secure token generation and configuration
 - Optional automatic updates (configurable time)
 - Systemd service management
@@ -242,9 +247,5 @@ EOF
 echo "Image customization completed successfully!"
 echo "Output image: $OUTPUT_IMAGE"
 echo ""
-echo "Next steps:"
-echo "1. Flash the image to an SD card"
-echo "2. Mount the boot partition and configure twingate-config.txt"
-echo "3. Boot the Raspberry Pi"
 
 exit 0

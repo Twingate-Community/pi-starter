@@ -229,16 +229,16 @@ REFRESH_TOKEN=$(echo "$response" | jq -r '.data.connectorGenerateTokens.connecto
 log "Tokens generated successfully!"
 
 # Step 3: Verify Twingate Connector is installed
-log "Verifying Twingate connector installation..."
+log "Verifying Twingate Connector installation..."
 
 if ! command -v twingate-connector &> /dev/null; then
-    log_error "Twingate connector is not installed!"
+    log_error "Twingate Connector is not installed!"
     log_error "This image was not built correctly. Please use a properly built image."
     exit 1
 fi
 
 if ! systemctl list-unit-files | grep -q twingate-connector.service; then
-    log_error "Twingate connector service not found!"
+    log_error "Twingate Connector service not found!"
     log_error "This image was not built correctly. Please use a properly built image."
     exit 1
 fi
@@ -272,15 +272,15 @@ echo "Connector Name: $CONNECTOR_NAME" >> "$PROVISIONED_FLAG"
 log "Provisioned flag created - connector will not be recreated on subsequent runs"
 
 # Step 5: Enable connector service
-log "Enabling Twingate connector service..."
+log "Enabling Twingate Connector service..."
 
 # Enable service to start on boot
 systemctl enable twingate-connector || {
-    log_error "Failed to enable Twingate connector service"
+    log_error "Failed to enable Twingate Connector service"
     exit 1
 }
 
-log "Twingate connector service enabled successfully."
+log "Twingate Connector service enabled successfully."
 log "Service will start automatically after reboot."
 
 # Step 6: Configure auto-updates
@@ -344,13 +344,13 @@ cp "$LOG_FILE" /boot/firmware/twingate-provision.log 2>/dev/null || \
 cp "$LOG_FILE" /boot/twingate-provision.log 2>/dev/null || true
 
 log "============================================"
-log "Twingate connector provisioning completed!"
+log "Twingate Connector provisioning completed!"
 log "Connector ID: $CONNECTOR_ID"
 log "Connector Name: $CONNECTOR_NAME"
-log "Status: Check Twingate Admin Console"
-log "Rebooting system to start connector service..."
+log "Status: Check the Twingate Admin Console"
+log "Rebooting system to start Connector service..."
 log "============================================"
 
-# Reboot the system to start the connector service cleanly
+# Reboot the system to start the Connector service cleanly
 sync
 reboot
