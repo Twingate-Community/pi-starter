@@ -1,0 +1,375 @@
+name: Build Twingate Connector Images
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC to check for new connector and OS versions
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Force build even if no updates detected"
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+
+env:
+  LITE_IMAGE_NAME: twingate-connector-pi-lite
+  FULL_IMAGE_NAME: twingate-connector-pi-full
+  LITE_BASE_URL: https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz
+  FULL_BASE_URL: https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64.img.xz
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.decide.outputs.should_build }}
+      connector_version: ${{ steps.connector.outputs.version }}
+      lite_image_url: ${{ steps.raspi_os_lite.outputs.url }}
+      lite_image_version: ${{ steps.raspi_os_lite.outputs.version }}
+      full_image_url: ${{ steps.raspi_os_full.outputs.url }}
+      full_image_version: ${{ steps.raspi_os_full.outputs.version }}
+      build_reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for latest Raspberry Pi OS Lite
+        id: raspi_os_lite
+        run: |
+          echo "Checking for latest Raspberry Pi OS Lite ARM64 release..."
+
+          LATEST_DIR=$(curl -s https://downloads.raspberrypi.org/raspios_lite_arm64/images/ | \
+            grep -oP 'raspios_lite_arm64-\d{4}-\d{2}-\d{2}' | \
+            sort -V | tail -1)
+
+          if [ -z "$LATEST_DIR" ]; then
+            echo "Could not determine latest version, using default"
+            LATEST_URL="${{ env.LITE_BASE_URL }}"
+            VERSION="2024-11-19"
+          else
+            VERSION=$(echo "$LATEST_DIR" | grep -oP '\d{4}-\d{2}-\d{2}')
+            LATEST_URL="https://downloads.raspberrypi.org/raspios_lite_arm64/images/${LATEST_DIR}/${VERSION}-raspios-bookworm-arm64-lite.img.xz"
+            
+            if ! curl -s --head "$LATEST_URL" | head -1 | grep -q "200 OK"; then
+              echo "Latest URL not accessible, using default"
+              LATEST_URL="${{ env.LITE_BASE_URL }}"
+              VERSION="2024-11-19"
+            fi
+          fi
+
+          echo "url=$LATEST_URL" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Lite OS version: $VERSION"
+
+      - name: Check for latest Raspberry Pi OS Full
+        id: raspi_os_full
+        run: |
+          echo "Checking for latest Raspberry Pi OS Full ARM64 release..."
+
+          LATEST_DIR=$(curl -s https://downloads.raspberrypi.org/raspios_arm64/images/ | \
+            grep -oP 'raspios_arm64-\d{4}-\d{2}-\d{2}' | \
+            sort -V | tail -1)
+
+          if [ -z "$LATEST_DIR" ]; then
+            echo "Could not determine latest version, using default"
+            LATEST_URL="${{ env.FULL_BASE_URL }}"
+            VERSION="2024-11-19"
+          else
+            VERSION=$(echo "$LATEST_DIR" | grep -oP '\d{4}-\d{2}-\d{2}')
+            LATEST_URL="https://downloads.raspberrypi.org/raspios_arm64/images/${LATEST_DIR}/${VERSION}-raspios-bookworm-arm64.img.xz"
+            
+            if ! curl -s --head "$LATEST_URL" | head -1 | grep -q "200 OK"; then
+              echo "Latest URL not accessible, using default"
+              LATEST_URL="${{ env.FULL_BASE_URL }}"
+              VERSION="2024-11-19"
+            fi
+          fi
+
+          echo "url=$LATEST_URL" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Full OS version: $VERSION"
+
+      - name: Get latest Twingate Connector version
+        id: connector
+        run: |
+          echo "Setting up Twingate repository..."
+
+          curl -fsSL https://packages.twingate.com/apt/gpg.key | \
+            sudo gpg --dearmor -o /usr/share/keyrings/twingate-connector-keyring.gpg
+
+          echo "deb [signed-by=/usr/share/keyrings/twingate-connector-keyring.gpg] https://packages.twingate.com/apt/ /" | \
+            sudo tee /etc/apt/sources.list.d/twingate.list
+
+          sudo apt-get update -qq
+
+          VERSION=$(apt-cache policy twingate-connector | grep Candidate | awk '{print $2}')
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not determine Twingate connector version"
+            apt-cache policy twingate-connector
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Connector version: $VERSION"
+
+      - name: Check what changed and decide if build needed
+        id: decide
+        run: |
+          CONNECTOR_VERSION="${{ steps.connector.outputs.version }}"
+          LITE_OS_VERSION="${{ steps.raspi_os_lite.outputs.version }}"
+          FULL_OS_VERSION="${{ steps.raspi_os_full.outputs.version }}"
+          FORCE_BUILD="${{ github.event.inputs.force_build }}"
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "reason=Merged to main branch" >> $GITHUB_OUTPUT
+            echo "Build triggered: Merged to main"
+            exit 0
+          fi
+
+          if [ "$FORCE_BUILD" = "true" ]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "reason=Manual force build" >> $GITHUB_OUTPUT
+            echo "Build triggered: Force build"
+            exit 0
+          fi
+
+          if gh release view "v$CONNECTOR_VERSION" >/dev/null 2>&1; then
+            echo "Release v$CONNECTOR_VERSION exists, checking for OS updates..."
+            
+            EXISTING_LITE_OS=$(gh release view "v$CONNECTOR_VERSION" --json body --jq '.body' | \
+              grep -oP 'Lite.*\K\d{4}-\d{2}-\d{2}' | head -1 || echo "")
+            EXISTING_FULL_OS=$(gh release view "v$CONNECTOR_VERSION" --json body --jq '.body' | \
+              grep -oP 'Full.*\K\d{4}-\d{2}-\d{2}' | head -1 || echo "")
+            
+            if [ -n "$EXISTING_LITE_OS" ] && [ "$EXISTING_LITE_OS" != "$LITE_OS_VERSION" ]; then
+              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "reason=Raspberry Pi OS Lite updated ($EXISTING_LITE_OS → $LITE_OS_VERSION)" >> $GITHUB_OUTPUT
+              echo "Build triggered: Lite OS updated"
+              exit 0
+            fi
+            
+            if [ -n "$EXISTING_FULL_OS" ] && [ "$EXISTING_FULL_OS" != "$FULL_OS_VERSION" ]; then
+              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "reason=Raspberry Pi OS Full updated ($EXISTING_FULL_OS → $FULL_OS_VERSION)" >> $GITHUB_OUTPUT
+              echo "Build triggered: Full OS updated"
+              exit 0
+            fi
+            
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "reason=No updates detected" >> $GITHUB_OUTPUT
+            echo "No build needed"
+          else
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "reason=New Twingate Connector version ($CONNECTOR_VERSION)" >> $GITHUB_OUTPUT
+            echo "Build triggered: New connector version"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build-lite:
+    needs: check-updates
+    if: needs.check-updates.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl gnupg jq apt-transport-https ca-certificates \
+            kpartx parted dosfstools xz-utils wget whois qemu-user-static binfmt-support
+
+      - name: Cache base image
+        id: cache-base-image
+        uses: actions/cache@v4
+        with:
+          path: base-image-lite.img
+          key: raspios-lite-${{ needs.check-updates.outputs.lite_image_version }}
+
+      - name: Download and extract base image
+        if: steps.cache-base-image.outputs.cache-hit != 'true'
+        run: |
+          wget -q --show-progress "${{ needs.check-updates.outputs.lite_image_url }}" -O base-image-lite.img.xz
+          xz -d base-image-lite.img.xz
+
+      - name: Build image
+        run: |
+          sudo bash scripts/customize-image.sh base-image-lite.img ${{ env.LITE_IMAGE_NAME }}.img
+          ls -lh ${{ env.LITE_IMAGE_NAME }}.img
+
+      - name: Compress image
+        run: |
+          xz -9 -T 2 --memlimit=75% -f ${{ env.LITE_IMAGE_NAME }}.img || true
+          if [ ! -f "${{ env.LITE_IMAGE_NAME }}.img.xz" ]; then
+            echo "Compression failed"
+            exit 1
+          fi
+          ls -lh ${{ env.LITE_IMAGE_NAME }}.img.xz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lite-image
+          path: ${{ env.LITE_IMAGE_NAME }}.img.xz
+          retention-days: 1
+
+  build-full:
+    needs: check-updates
+    if: needs.check-updates.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl gnupg jq apt-transport-https ca-certificates \
+            kpartx parted dosfstools xz-utils wget whois qemu-user-static binfmt-support
+
+      - name: Cache base image
+        id: cache-base-image
+        uses: actions/cache@v4
+        with:
+          path: base-image-full.img
+          key: raspios-full-${{ needs.check-updates.outputs.full_image_version }}
+
+      - name: Download and extract base image
+        if: steps.cache-base-image.outputs.cache-hit != 'true'
+        run: |
+          wget -q --show-progress "${{ needs.check-updates.outputs.full_image_url }}" -O base-image-full.img.xz
+          xz -d base-image-full.img.xz
+
+      - name: Build image
+        run: |
+          sudo bash scripts/customize-image.sh base-image-full.img ${{ env.FULL_IMAGE_NAME }}.img
+          ls -lh ${{ env.FULL_IMAGE_NAME }}.img
+
+      - name: Compress image
+        run: |
+          xz -9 -T 2 --memlimit=75% -f ${{ env.FULL_IMAGE_NAME }}.img || true
+          if [ ! -f "${{ env.FULL_IMAGE_NAME }}.img.xz" ]; then
+            echo "Compression failed"
+            exit 1
+          fi
+          ls -lh ${{ env.FULL_IMAGE_NAME }}.img.xz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-image
+          path: ${{ env.FULL_IMAGE_NAME }}.img.xz
+          retention-days: 1
+
+  release:
+    needs: [check-updates, build-lite, build-full]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download lite image
+        uses: actions/download-artifact@v4
+        with:
+          name: lite-image
+
+      - name: Download full image
+        uses: actions/download-artifact@v4
+        with:
+          name: full-image
+
+      - name: Generate checksums
+        id: checksums
+        run: |
+          LITE_SHA=$(sha256sum ${{ env.LITE_IMAGE_NAME }}.img.xz | awk '{print $1}')
+          FULL_SHA=$(sha256sum ${{ env.FULL_IMAGE_NAME }}.img.xz | awk '{print $1}')
+
+          echo "lite_sha=$LITE_SHA" >> $GITHUB_OUTPUT
+          echo "full_sha=$FULL_SHA" >> $GITHUB_OUTPUT
+
+      - name: Create release notes
+        run: |
+          VERSION="${{ needs.check-updates.outputs.connector_version }}"
+          BUILD_DATE=$(date +%Y-%m-%d)
+          LITE_OS="${{ needs.check-updates.outputs.lite_image_version }}"
+          FULL_OS="${{ needs.check-updates.outputs.full_image_version }}"
+          BUILD_REASON="${{ needs.check-updates.outputs.build_reason }}"
+          LITE_SHA="${{ steps.checksums.outputs.lite_sha }}"
+          FULL_SHA="${{ steps.checksums.outputs.full_sha }}"
+
+          cat > release-notes.md << EOF
+          # Twingate Connector for Raspberry Pi - v$VERSION
+
+          **Build Date:** $BUILD_DATE  
+          **Build Trigger:** $BUILD_REASON  
+          **Connector Version:** $VERSION
+
+          ## Images
+
+          This release includes two image variants:
+
+          ### Lite Image (Minimal)
+          - **File:** \`${{ env.LITE_IMAGE_NAME }}.img.xz\`
+          - **Base:** Raspberry Pi OS Lite (64-bit) $LITE_OS
+          - **Size:** ~1.5GB (compressed)
+          - **Best for:** Headless deployments, dedicated connector appliances
+          - **SHA256:** \`$LITE_SHA\`
+
+          ### Full Image (Desktop)
+          - **File:** \`${{ env.FULL_IMAGE_NAME }}.img.xz\`
+          - **Base:** Raspberry Pi OS Full (64-bit) $FULL_OS
+          - **Size:** ~3-4GB (compressed)
+          - **Best for:** Deployments needing GUI access or additional tools
+          - **SHA256:** \`$FULL_SHA\`
+
+          ## Verify Downloads
+
+          \`\`\`bash
+          # Lite
+          sha256sum ${{ env.LITE_IMAGE_NAME }}.img.xz
+          # Should match: $LITE_SHA
+
+          # Full
+          sha256sum ${{ env.FULL_IMAGE_NAME }}.img.xz
+          # Should match: $FULL_SHA
+          \`\`\`
+
+          ## Configuration
+
+          See \`twingate-config.txt.example\` for all options.
+
+          ## Documentation
+
+          - [Twingate Connector Docs](https://www.twingate.com/docs/connectors)
+          - [API Documentation](https://www.twingate.com/docs/api)
+
+          ## Support
+
+          - [Report Issues](https://github.com/${{ github.repository }}/issues)
+          - [Subreddit](https://reddit.com/r/twingate)
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.check-updates.outputs.connector_version }}
+          name: Twingate Connector Pi v${{ needs.check-updates.outputs.connector_version }}
+          body_path: release-notes.md
+          files: |
+            ${{ env.LITE_IMAGE_NAME }}.img.xz
+            ${{ env.FULL_IMAGE_NAME }}.img.xz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
