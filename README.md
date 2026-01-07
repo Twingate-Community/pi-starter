@@ -150,10 +150,10 @@ TWINGATE_NETWORK=yourcompany
 # Required: API key from Admin Console
 TWINGATE_API_KEY=your_api_key_here
 
-# Required: Remote Network ID to deploy connector to
+# Required: Remote Network ID to deploy Connector to
 TWINGATE_REMOTE_NETWORK_ID=your_remote_network_id
 
-# Optional: Custom connector name
+# Optional: Custom Connector name
 # Leave empty to auto-generate: twingate-pi-<hostname>
 CONNECTOR_NAME=
 
@@ -312,7 +312,7 @@ The repository includes automated image building:
 
 ### Workflow Features
 
-- Checks Twingate repository for latest connector version
+- Checks Twingate repository for latest Connector version
 - Only builds if version changed
 - Generates SHA256 checksums
 - Creates detailed release notes

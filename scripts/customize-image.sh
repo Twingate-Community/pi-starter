@@ -5,7 +5,7 @@ set -euo pipefail
 # Raspberry Pi Image Customization Script
 # 
 # This script customizes a Raspberry Pi OS Lite image with:
-# 1. Pre-installed Twingate connector package
+# 1. Pre-installed Twingate Connector package
 # 2. First-boot provisioning service
 # 3. Example configuration file
 #
@@ -185,7 +185,7 @@ cat > "$MOUNT_BOOT/TWINGATE_README.txt" << 'EOF'
 Twingate Connector Raspberry Pi Image
 ======================================
 
-This image contains a pre-installed Twingate connector that will be
+This image contains a pre-installed Twingate Connector that will be
 automatically configured on first boot.
 
 SETUP INSTRUCTIONS:
@@ -199,10 +199,10 @@ SETUP INSTRUCTIONS:
    Required parameters:
    - TWINGATE_NETWORK: Your Twingate network name (subdomain)
    - TWINGATE_API_KEY: API key from Admin Console (Settings > API)
-   - TWINGATE_REMOTE_NETWORK_ID: Remote Network ID to deploy connector to
+   - TWINGATE_REMOTE_NETWORK_ID: Remote Network ID to deploy Connector to
    
    Optional parameters:
-   - CONNECTOR_NAME: Custom connector name (auto-generated if empty)
+   - CONNECTOR_NAME: Custom Connector name (auto-generated if empty)
    - AUTO_UPDATE_ENABLED: Enable automatic updates (default: true)
    - AUTO_UPDATE_TIME: Update check time in HH:MM format (default: 03:00)
 

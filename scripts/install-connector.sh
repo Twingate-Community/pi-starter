@@ -36,7 +36,7 @@ fi
 # Add repository
 echo "deb [signed-by=${TWINGATE_GPG_KEY}] https://packages.twingate.com/apt/ /" | tee /etc/apt/sources.list.d/twingate.list
 
-# Update and install connector
+# Update and install Connector
 log "Installing Twingate Connector package..."
 apt-get update
 apt-get install -y twingate-connector

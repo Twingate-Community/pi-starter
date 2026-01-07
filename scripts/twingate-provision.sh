@@ -66,7 +66,7 @@ fi
 
 if [ -z "${TWINGATE_REMOTE_NETWORK_ID:-}" ]; then
     log_error "TWINGATE_REMOTE_NETWORK_ID is not set in configuration"
-    log_error "Please specify the Remote Network ID where the connector should be deployed"
+    log_error "Please specify the Remote Network ID where the Connector should be deployed"
     exit 1
 fi
 
@@ -128,7 +128,7 @@ call_graphql_api() {
 }
 
 # Step 1: Create Connector
-log "Creating connector: $CONNECTOR_NAME"
+log "Creating Connector: $CONNECTOR_NAME"
 
 query=$(jq -n \
     --arg name "$CONNECTOR_NAME" \
@@ -145,7 +145,7 @@ response=$(call_graphql_api "$query")
 
 # Check if response is empty
 if [ -z "$response" ]; then
-    log_error "Failed to create connector. Empty response from API."
+    log_error "Failed to create Connector. Empty response from API."
     log_error "This could indicate a network issue or invalid API endpoint."
     exit 1
 fi
@@ -156,14 +156,14 @@ log "API Response: $response"
 # Check for GraphQL errors
 if echo "$response" | jq -e '.errors' > /dev/null 2>&1; then
     error_details=$(echo "$response" | jq -r '.errors[] | "\(.message) (path: \(.path // "N/A"))"')
-    log_error "Failed to create connector. GraphQL errors:"
+    log_error "Failed to create Connector. GraphQL errors:"
     log_error "$error_details"
     exit 1
 fi
 
 # Check if data exists
 if ! echo "$response" | jq -e '.data.connectorCreate' > /dev/null 2>&1; then
-    log_error "Failed to create connector. Invalid response structure."
+    log_error "Failed to create Connector. Invalid response structure."
     log_error "Response: $response"
     exit 1
 fi
@@ -171,7 +171,7 @@ fi
 ok=$(echo "$response" | jq -r '.data.connectorCreate.ok')
 if [ "$ok" != "true" ]; then
     error_msg=$(echo "$response" | jq -r '.data.connectorCreate.error // "Unknown error"')
-    log_error "Failed to create connector: $error_msg"
+    log_error "Failed to create Connector: $error_msg"
     exit 1
 fi
 

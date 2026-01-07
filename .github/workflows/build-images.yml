@@ -5,7 +5,7 @@ permissions:
 
 on:
   schedule:
-    # Run daily at 2 AM UTC to check for new connector and OS versions
+    # Run daily at 2 AM UTC to check for new Connector and OS versions
     - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
@@ -110,7 +110,7 @@ jobs:
           VERSION=$(apt-cache policy twingate-connector | grep Candidate | awk '{print $2}')
 
           if [ -z "$VERSION" ]; then
-            echo "Error: Could not determine Twingate connector version"
+            echo "Error: Could not determine Twingate Connector version"
             apt-cache policy twingate-connector
             exit 1
           fi
@@ -168,7 +168,7 @@ jobs:
           else
             echo "should_build=true" >> $GITHUB_OUTPUT
             echo "reason=New Twingate Connector version ($CONNECTOR_VERSION)" >> $GITHUB_OUTPUT
-            echo "Build triggered: New connector version"
+            echo "Build triggered: New Connector version"
           fi
         env:
           GH_TOKEN: ${{ github.token }}
@@ -320,7 +320,7 @@ jobs:
           - **File:** \`${{ env.LITE_IMAGE_NAME }}.img.xz\`
           - **Base:** Raspberry Pi OS Lite (64-bit) $LITE_OS
           - **Size:** ~1.5GB (compressed)
-          - **Best for:** Headless deployments, dedicated connector appliances
+          - **Best for:** Headless deployments, dedicated Connector appliances
           - **SHA256:** \`$LITE_SHA\`
 
           ### Full Image (Desktop)

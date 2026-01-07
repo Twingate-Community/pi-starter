@@ -9,11 +9,11 @@ TWINGATE_NETWORK=yourcompany
 # Generate at: Settings > API > Generate Token
 TWINGATE_API_KEY=your_api_key_here
 
-# Required: Remote Network ID to deploy connector to
+# Required: Remote Network ID to deploy Connector to
 # Find in Admin Console: Networks > Your Network > Copy ID from URL
 TWINGATE_REMOTE_NETWORK_ID=your_remote_network_id
 
-# Optional: Custom name for this connector
+# Optional: Custom name for this Connector
 # Leave empty to auto-generate based on hostname
 CONNECTOR_NAME=
 
