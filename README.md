@@ -190,7 +190,7 @@ xz -9 twingate-connector-pi.img
 
 ```bash
 # Download base Raspberry Pi OS image
-wget https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz
+wget https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2025-12-04/2025-12-04-raspios-trixie-arm64-lite.img.xz
 xz -d *.img.xz
 
 # Run customization script
