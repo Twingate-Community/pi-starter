@@ -31,7 +31,7 @@ COPY config/ /build/config/
 # Build arguments
 
 # The base image URL can be swapped out to support full or lite versions
-ARG BASE_IMAGE_URL=https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz
+ARG BASE_IMAGE_URL=https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2025-12-04/2025-12-04-raspios-trixie-arm64-lite.img.xz
 ARG OUTPUT_IMAGE=twingate-connector-pi.img
 
 # Download and extract base image during build
